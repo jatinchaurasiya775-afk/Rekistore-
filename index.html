@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reki Store</title>
+
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      padding: 15px;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #333;
+      margin-bottom: 15px;
+    }
+    .brand { font-size: 20px; font-weight: bold; color: #00e676; }
+    .wallet-box {
+      background: #222;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      border: 1px solid #00e676;
+    }
+
+    .card {
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 20px;
+      border: 1px solid #333;
+      text-align: center;
+    }
+
+    .btn-pay {
+      background: #008cff;
+      color: white;
+      padding: 12px 20px;
+      text-decoration: none;
+      font-weight: bold;
+      border-radius: 8px;
+      display: block;
+      margin: 10px 0;
+    }
+
+    .upi-id {
+      background: #2a2a2a;
+      padding: 8px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 14px;
+      color: #ffeb3b;
+      word-break: break-all;
+      margin: 10px 0;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #111;
+      color: white;
+    }
+
+    button.submit-btn {
+      width: 100%;
+      padding: 12px;
+      background: #00e676;
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 15px;
+    }
+    .app-card {
+      background: #1e1e1e;
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+      border: 1px solid #333;
+    }
+    .app-icon {
+      width: 60px;
+      height: 60px;
+      background: #ff9800;
+      border-radius: 12px;
+      margin: 0 auto 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header Section -->
+  <div class="header">
+    <div class="brand">🚀 Reki Store</div>
+    <div class="wallet-box">💰 ₹<span id="userBalance">0</span></div>
+  </div>
+
+  <!-- UPI Recharge Section -->
+  <div class="card">
+    <h3 style="color: #00e676; margin-bottom: 5px;">UPI से वॉलेट रिचार्ज करें</h3>
+    <p style="font-size: 12px; color: #aaa;">नीचे दिए बटन पर क्लिक करके सीधे पे करें:</p>
+
+    <a href="upi://pay?pa=paytmqr6oa27c@ptys&pn=Paytm&cu=INR" class="btn-pay">
+      📲 Paytm / PhonePe से Direct Pay करें
+    </a>
+
+    <div class="upi-id">UPI ID: paytmqr6oa27c@ptys</div>
+
+    <input type="number" id="payAmount" placeholder="कितने रुपये भेजे? (उदा. 20, 50)">
+    <input type="text" id="utrInput" placeholder="12-Digit UTR / Transaction ID">
+    <button class="submit-btn" id="submitBtn" onclick="submitPaymentRequest()">पेमेंट वेरिफिकेशन भेजें</button>
+  </div>
+
+  <!-- Apps Section -->
+  <h3 style="margin-bottom: 10px;">🔥 लेटेस्ट ऐप्स व गेम्स</h3>
+  <div class="app-grid">
+    <div class="app-card">
+      <div class="app-icon">FF 2D</div>
+      <div style="font-size: 14px; font-weight: bold;">Free Fire 2D</div>
+      <div style="font-size: 11px; color: #00e676; margin: 4px 0;">फ्री</div>
+      <button style="background: #008cff; color: white; border: none; padding: 5px 10px; border-radius: 4px; width: 100%;">डाउनलोड</button>
+    </div>
+  </div>
+
+  <script>
+    // ----------------------------------------------------
+    // Supabase Configuration
+    // ----------------------------------------------------
+    const SUPABASE_URL = "https://mrgmnefdqyirgqcswdeh.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yZ21uZWZkcXlpcmdxY3N3ZGVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwOTAwNTEsImV4cCI6MjEwMTY2NjA1MX0.kSHM3XcL3oDzAbl2ICv3lw6rZKBtVXHFHhUTndDTogM";
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Payment Submission to Supabase
+    async function submitPaymentRequest() {
+      const amount = document.getElementById('payAmount').value;
+      const utr = document.getElementById('utrInput').value.trim();
+      const submitBtn = document.getElementById('submitBtn');
+
+      if (!amount || !utr) {
+        alert("कृपया Amount और Transaction ID दोनों भरें!");
+        return;
+      }
+
+      if (utr.length < 6) {
+        alert("कृपया सही UTR / Transaction Number डालें!");
+        return;
+      }
+
+      submitBtn.innerText = "भेजा जा रहा है...";
+      submitBtn.disabled = true;
+
+      // Supabase में डेटा इन्सर्ट करें
+      const { data, error } = await supabaseClient
+        .from('payment_requests')
+        .insert([
+          { amount: Number(amount), utr: utr, status: 'pending' }
+        ]);
+
+      if (error) {
+        alert("त्रुटि! डेटा सेव नहीं हो सका: " + error.message);
+        submitBtn.innerText = "पेमेंट वेरिफिकेशन भेजें";
+        submitBtn.disabled = false;
+      } else {
+        alert("आपकी रिक्वेस्ट दर्ज हो गई है! वेरिफिकेशन के बाद बैलेंस ऐड हो जाएगा।");
+        document.getElementById('payAmount').value = '';
+        document.getElementById('utrInput').value = '';
+        submitBtn.innerText = "पेमेंट वेरिफिकेशन भेजें";
+        submitBtn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
+
